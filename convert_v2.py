@@ -7,6 +7,9 @@ import requests
 from io import StringIO
 from datetime import datetime, timedelta
 
+## TODO: if date is a holiday, go to next business day
+## TODO: if there are multiple matches, prompt user to choose an account (may be with interactive flag on, else don't assign any accounts)
+
 # In-memory NAV cache: {(mf_number, from_date, to_date): DataFrame}
 nav_cache = {}
 
@@ -59,9 +62,9 @@ def fetch_nav_data(mf_number, from_date, to_date):
 def get_nav_for_date(mf_number, scheme_code, date_str):
     # date_str is expected in 'dd/mm/yyyy'
     date = datetime.strptime(date_str, '%d/%m/%Y').date()
-    from_date = (date - timedelta(days=7)).strftime('%d-%b-%Y')
-    ## TODO: both from_date and to_date should be same.
-    to_date = (date + timedelta(days=7)).strftime('%d-%b-%Y')
+    from_date = date.strftime('%d-%b-%Y')
+    to_date = from_date
+    ## TODO: if date is a holiday, go to next business day
     nav_df = fetch_nav_data(mf_number, from_date, from_date)
     # Ensure Scheme Code is str for comparison
     nav_df['Scheme Code'] = nav_df['Scheme Code'].astype(str)
