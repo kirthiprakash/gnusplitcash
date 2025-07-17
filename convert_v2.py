@@ -5,13 +5,8 @@ import yaml
 import sys
 import os
 
-from datetime import datetime, timedelta
-
-
 ## TODO: First match the accounts with value_conditions and then match without them.
-## TODO: if date is a holiday, go to next business day
 ## TODO: if there are multiple matches, prompt user to choose an account (may be with interactive flag on, else don't assign any accounts)
-
 
 
 def load_rules(config_file="account_rules.yaml"):
@@ -19,18 +14,44 @@ def load_rules(config_file="account_rules.yaml"):
         config = yaml.safe_load(f)
     return config['rules'], config.get('mutual_funds', {})
 
+import re
+
+def is_all_keywords_present(description, keywords):
+    """Returns True if ALL keywords (case-insensitive) appear in description."""
+    description_lower = description.lower()
+    return all(keyword.lower() in description_lower for keyword in keywords)
+
 def determine(description, value, rules):
     description_lower = description.lower()
+
+    # 1st pass: rules with value_conditions
     for rule in rules:
+        value_conditions = rule.get('value_conditions', [])
+        if not value_conditions:
+            continue
         for pattern in rule.get('patterns', []):
-            if re.search(pattern, description_lower, re.IGNORECASE):
-                value_conditions = rule.get('value_conditions', [])
-                if value_conditions:
+            # Support for multi-keyword patterns as a list
+            if isinstance(pattern, list):
+                if is_all_keywords_present(description, pattern):
                     for cond in value_conditions:
                         if 'amount' in cond and abs(cond['amount'] - value) < 0.01:
                             return rule
-                    continue
-                else:
+            else:
+                if re.search(pattern, description_lower, re.IGNORECASE):
+                    for cond in value_conditions:
+                        if 'amount' in cond and abs(cond['amount'] - value) < 0.01:
+                            return rule
+
+    # 2nd pass: rules without value_conditions
+    for rule in rules:
+        if rule.get('value_conditions'):
+            continue
+        for pattern in rule.get('patterns', []):
+            if isinstance(pattern, list):
+                if is_all_keywords_present(description, pattern):
+                    return rule
+            else:
+                if re.search(pattern, description_lower, re.IGNORECASE):
                     return rule
     return None
 
