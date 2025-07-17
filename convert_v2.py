@@ -1,89 +1,23 @@
+from mf_nav_util import get_nav_for_date
 import pandas as pd
 import re
 import yaml
 import sys
 import os
-import requests
-from io import StringIO
+
 from datetime import datetime, timedelta
 
+
+## TODO: First match the accounts with value_conditions and then match without them.
 ## TODO: if date is a holiday, go to next business day
 ## TODO: if there are multiple matches, prompt user to choose an account (may be with interactive flag on, else don't assign any accounts)
 
-# In-memory NAV cache: {(mf_number, from_date, to_date): DataFrame}
-nav_cache = {}
+
 
 def load_rules(config_file="account_rules.yaml"):
     with open(config_file, "r") as f:
         config = yaml.safe_load(f)
     return config['rules'], config.get('mutual_funds', {})
-
-def parse_amfi_nav_data(data):
-    lines = data.splitlines()
-    # Find the header line
-    header_line = None
-    for i, line in enumerate(lines):
-        if line.startswith('Scheme Code;'):
-            header_line = i
-            break
-    if header_line is None:
-        raise ValueError("Header line not found in AMFI NAV data")
-    # Extract lines from header onwards
-    valid_lines = lines[header_line:]
-    # Filter out blank and malformed lines
-    filtered_lines = []
-    for line in valid_lines:
-        if line.strip() == '':
-            continue
-        parts = line.split(';')
-        if len(parts) == 8:
-            filtered_lines.append(line)
-    if not filtered_lines:
-        raise ValueError("No valid NAV data lines found")
-    # Read into DataFrame
-    filtered_data = '\n'.join(filtered_lines)
-    df = pd.read_csv(StringIO(filtered_data), sep=';')
-    return df
-
-def fetch_nav_data(mf_number, from_date, to_date):
-    cache_key = (mf_number, from_date, to_date)
-    if cache_key in nav_cache:
-        return nav_cache[cache_key]
-    url = f"https://portal.amfiindia.com/DownloadNAVHistoryReport_Po.aspx?mf={mf_number}&tp=1&frmdt={from_date}&todt={to_date}"
-    response = requests.get(url)
-    response.raise_for_status()
-    nav_df = parse_amfi_nav_data(response.text)
-    # Clean up date column
-    nav_df['Date'] = pd.to_datetime(nav_df['Date'], format='%d-%b-%Y', errors='coerce')
-    nav_cache[cache_key] = nav_df
-    print("fetched MF data for ", cache_key)
-    return nav_df
-
-def get_nav_for_date(mf_number, scheme_code, date_str):
-    # date_str is expected in 'dd/mm/yyyy'
-    date = datetime.strptime(date_str, '%d/%m/%Y').date()
-    from_date = date.strftime('%d-%b-%Y')
-    to_date = from_date
-    ## TODO: if date is a holiday, go to next business day
-    nav_df = fetch_nav_data(mf_number, from_date, from_date)
-    # Ensure Scheme Code is str for comparison
-    nav_df['Scheme Code'] = nav_df['Scheme Code'].astype(str)
-    scheme_code = str(scheme_code)
-    filtered = nav_df[
-        (nav_df['Scheme Code'] == scheme_code) &
-        (nav_df['Date'] == pd.Timestamp(date))
-    ]
-    if filtered.empty:
-        filtered = nav_df[
-            (nav_df['Scheme Code'] == scheme_code) &
-            (nav_df['Date'] <= pd.Timestamp(date))
-        ].sort_values('Date', ascending=False).head(1)
-    if filtered.empty:
-        return None
-    try:
-        return float(filtered.iloc[0]['Net Asset Value'])
-    except Exception:
-        return None
 
 def determine(description, value, rules):
     description_lower = description.lower()
