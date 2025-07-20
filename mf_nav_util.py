@@ -18,8 +18,17 @@ YEAR_SPECIFIC_HOLIDAYS = {
         datetime(2024, 11, 1).date(),   # Another example for 2024
     },
     2025: {
-        datetime(2025, 3, 14).date(),   # Example variable holiday for 2025
-        # Add more for 2025
+        datetime(2025, 4, 10).date(),
+        datetime(2025, 4, 14).date(),
+        datetime(2025, 4, 18).date(),   
+        datetime(2025, 5, 1).date(),
+        datetime(2025, 8, 15).date(),
+        datetime(2025, 8, 27).date(),
+        datetime(2025, 10, 2).date(),
+        datetime(2025, 10, 21).date(),
+        datetime(2025, 10, 22).date(),
+        datetime(2025, 11, 5).date(),
+        datetime(2025, 12, 25).date(),
     }
     # Add more years as needed
 }

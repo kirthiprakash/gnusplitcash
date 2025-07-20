@@ -1,3 +1,4 @@
+import uuid
 from mf_nav_util import get_nav_for_date
 import pandas as pd
 import re
@@ -85,15 +86,21 @@ def main():
         deposit = float(row['Deposit Amount (INR )'])
         value = withdrawal if withdrawal > 0 else deposit
 
+        transaction_id = str(uuid.uuid4())  
+
         # First split (bank account)
         split1 = {
+            'TransactionID': transaction_id,
             'date': date,
             'description': description,
-            'Full Account Name': 'Assets:Current Assets: Savings - ICICI',
+            'Full Account Name': 'Assets:Current Assets:Savings - ICICI',
             'Amount': -value if withdrawal > 0 else value,
             'Value': value,
             'price': ''
         }
+
+        # optional third split for mutual fund purchase stamp duty
+        stamp_duty_split = None
 
         # Second split (counter account)
         rule = determine(description, value, rules)
@@ -115,13 +122,28 @@ def main():
                     nav_price = None
                 if nav_price:
                     price = nav_price
-                    amount2 = value / nav_price
+                    # deduct stamp duty of 0.05% on MF purchase
+                    stamp_duty = value * (0.005 / 100)
+                    value_minus_duty= value - stamp_duty
+                    amount2 = value_minus_duty / nav_price
+                    value = value - stamp_duty
+
+                    stamp_duty_split = {
+                    'TransactionID': transaction_id,
+                    'date': date,
+                    'description': description,
+                    'Full Account Name': 'Expenses:Taxes:Mutual Fund Purchase Stamp Duty',
+                    'Amount': stamp_duty,
+                    'Value': stamp_duty,
+                    'price': ''
+                }
         else:
-            account2 = "Expenses:Unknown"
+            account2 = "Imbalance-INR"
             price = ''
             amount2 = -split1['Amount']
 
         split2 = {
+            'TransactionID': transaction_id,
             'date': date,
             'description': description,
             'Full Account Name': account2,
@@ -132,6 +154,8 @@ def main():
 
         multi_split_transactions.append(split1)
         multi_split_transactions.append(split2)
+        if stamp_duty_split:
+            multi_split_transactions.append(stamp_duty_split)
 
     # Convert to DataFrame and export as CSV
     multi_split_df = pd.DataFrame(multi_split_transactions)
