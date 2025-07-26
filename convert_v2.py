@@ -79,6 +79,9 @@ def main():
     # Prepare list to hold multi-split transactions
     multi_split_transactions = []
 
+    total_transactions = bank_df.shape[0] - 1
+    unmatched_transactions = 0
+
     for idx, row in bank_df.iterrows():
         date = row['Value Date']
         description = str(row['Transaction Remarks'])
@@ -138,6 +141,7 @@ def main():
                     'price': ''
                 }
         else:
+            unmatched_transactions += 1
             account2 = "Imbalance-INR"
             price = ''
             amount2 = -split1['Amount']
@@ -161,6 +165,7 @@ def main():
     multi_split_df = pd.DataFrame(multi_split_transactions)
     output_file = "multi_split_gnucash.csv"
     multi_split_df.to_csv(output_file, index=False)
+    print(f"Total transactions:{total_transactions}; Unmatched:{unmatched_transactions}; Match Percentage: {round(((total_transactions-unmatched_transactions)/total_transactions)*100, 2)}%")
     print(f"Conversion complete. Output written to {output_file}")
 
 if __name__ == "__main__":
